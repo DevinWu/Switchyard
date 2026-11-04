@@ -30,7 +30,7 @@ use crate::core::classifier::{Classification, Classifier, Score};
 use crate::core::processor::{Event, Processor};
 use crate::core::state::State;
 use crate::{LibsyError, Result};
-use switchyard_protocol::{Category, Request, Response};
+use switchyard_protocol::{Category, ModelId, Request, Response};
 
 /// Telemetry name for a router this module assembles.
 const STAGE_ROUTER: &str = "stage_router";
@@ -98,8 +98,18 @@ impl Classifier for SourceStamp {
         let (classification, served) = self.inner.score(state, request, driver).await?;
         // An abstaining classifier passes the turn on, so it is not its to claim.
         if let Some(winner) = classification.argmax(false)? {
-            let need_name = winner.needs.first().map_or("unknown", Category::as_str);
-            record_routing_decision(self.source, need_name);
+            // Resolve through the scoped driver: `target_name` on this metric is a model
+            // id in the resolved and override branches, so it stays one here.
+            let selected = winner.pin.clone().or_else(|| {
+                winner
+                    .needs
+                    .iter()
+                    .find_map(|need| driver.models_for(need).first().cloned())
+            });
+            record_routing_decision(
+                self.source,
+                selected.as_ref().map_or("unknown", ModelId::as_str),
+            );
             driver.set_evidence_if_empty(serde_json::json!({
                 "source": self.source.as_str(),
             }));
