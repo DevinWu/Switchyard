@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>CVDP cost frontier — PP Switchyard Router (3 stages)</title>
+  <style>
+    :root {
+      --ink: #e8f5fb;
+      --muted: #9db6c4;
+      --faint: #6f8e9e;
+      --base: #061925;
+      --panel: #0a2230;
+      --panel-2: #0d2a39;
+      --grid: #244858;
+      --cyan: #59dfcb;
+      --blue: #5aa7ff;
+      --orange: #ff855f;
+      --yellow: #f2c85b;
+      --red: #ff707a;
+      --line: rgba(171, 211, 229, .22);
+      --focus: #fff2a8;
+      --sans: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(89, 223, 203, .032) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(89, 223, 203, .032) 1px, transparent 1px),
+        var(--base);
+      background-size: 32px 32px;
+      font-family: var(--sans);
+      font-variant-numeric: tabular-nums;
+    }
+
+    a { color: var(--cyan); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    a:hover { color: #a9fff2; }
+    button:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+
+    .shell { width: min(1440px, calc(100% - 40px)); margin: 0 auto; }
+    .topline {
+      height: 6px;
+      background: linear-gradient(90deg, var(--cyan) 0 65%, var(--red) 65% 100%);
+      box-shadow: 0 0 20px rgba(89, 223, 203, .35);
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 32px;
+      align-items: end;
+      padding: 42px 0 28px;
+      border-bottom: 1px solid var(--line);
+    }
+    .kicker {
+      color: var(--cyan);
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: .08em;
+      margin-bottom: 14px;
+    }
+    h1 { margin: 0; max-width: 900px; font-size: clamp(36px, 5vw, 74px); line-height: .98; letter-spacing: -.045em; }
+    h1 span { display: block; color: var(--muted); font-weight: 420; font-size: .42em; letter-spacing: -.015em; margin-top: 14px; line-height: 1.2; }
+    .run-stamp { text-align: right; color: var(--muted); font-family: var(--mono); font-size: 12px; line-height: 1.7; }
+    .run-stamp strong { color: var(--ink); font-weight: 650; }
+
+    .disclosure {
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      gap: 12px;
+      margin: 22px 0 0;
+      padding: 13px 16px;
+      max-width: 960px;
+      border-left: 3px solid var(--yellow);
+      background: rgba(242, 200, 91, .075);
+      color: #d8d0ad;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .disclosure b { color: var(--yellow); }
+
+    .instrument {
+      display: grid;
+      grid-template-columns: 142px minmax(0, 1fr);
+      min-height: 630px;
+      margin-top: 34px;
+      border: 1px solid var(--line);
+      background: rgba(5, 21, 31, .84);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .28);
+    }
+    .readout {
+      padding: 24px 18px;
+      border-right: 1px solid var(--line);
+      background: rgba(13, 42, 57, .72);
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .readout .score { color: var(--cyan); font-size: 52px; font-weight: 760; letter-spacing: -.05em; }
+    .readout .unit { color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: .08em; }
+    .scope { min-width: 0; padding: 26px 30px 20px; }
+    .scope-head { display: flex; justify-content: space-between; gap: 18px; align-items: start; margin-bottom: 10px; }
+    .scope h2 { margin: 0; font-size: clamp(22px, 2.3vw, 34px); letter-spacing: -.025em; }
+    .scope-head p { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+    .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px 18px; color: var(--muted); font-size: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 7px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: currentColor; box-shadow: 0 0 10px currentColor; }
+    .chart-wrap { position: relative; min-height: 490px; }
+    #frontier { display: block; width: 100%; height: 500px; overflow: visible; }
+    .tooltip {
+      position: absolute;
+      pointer-events: none;
+      z-index: 4;
+      min-width: 190px;
+      padding: 11px 13px;
+      border: 1px solid rgba(232, 245, 251, .2);
+      background: rgba(4, 19, 28, .96);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+      font-size: 12px;
+      line-height: 1.55;
+      opacity: 0;
+      transform: translateY(5px);
+      transition: opacity .12s ease, transform .12s ease;
+    }
+    .tooltip.visible { opacity: 1; transform: translateY(0); }
+    .tooltip strong { display: block; color: var(--ink); font-size: 13px; }
+    .tooltip em { color: var(--muted); font-style: normal; }
+
+    .metric-rail {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid var(--line);
+      border-top: 0;
+      background: var(--panel);
+    }
+    .metric { padding: 19px 22px; border-right: 1px solid var(--line); }
+    .metric:last-child { border-right: 0; }
+    .metric small { display: block; color: var(--faint); margin-bottom: 6px; }
+    .metric strong { font-size: 25px; letter-spacing: -.035em; }
+    .metric .sub { display: block; margin-top: 5px; color: var(--muted); font: 11px/1.4 var(--mono); }
+
+    section { padding: 70px 0; border-bottom: 1px solid var(--line); }
+    .section-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 470px); gap: 40px; align-items: end; margin-bottom: 30px; }
+    h2 { margin: 0; font-size: clamp(28px, 3.2vw, 48px); letter-spacing: -.04em; }
+    .section-head p { margin: 0; color: var(--muted); line-height: 1.6; }
+
+    .bus { border-top: 1px solid var(--line); }
+    .bus-row { display: grid; grid-template-columns: 230px minmax(0, 1fr) 105px 105px; gap: 20px; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--line); }
+    .bus-name { font-weight: 650; }
+    .bus-name small { display: block; color: var(--muted); font-family: var(--mono); font-weight: 400; margin-top: 4px; }
+    .track { height: 10px; background: rgba(157, 182, 196, .11); overflow: hidden; }
+    .track span { display: block; height: 100%; min-width: 2px; transform-origin: left; animation: bus-in 700ms cubic-bezier(.2,.8,.2,1) both; }
+    .bus-value { text-align: right; font: 13px var(--mono); }
+    .bus-value small { color: var(--muted); display: block; margin-bottom: 4px; }
+    @keyframes bus-in { from { transform: scaleX(0); } }
+
+    .task-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 26px; }
+    .task-grid { display: grid; grid-template-columns: repeat(10, minmax(38px, 1fr)); gap: 8px; }
+    .task-node {
+      aspect-ratio: 1;
+      border: 1px solid var(--line);
+      background: rgba(13, 42, 57, .58);
+      color: var(--ink);
+      cursor: pointer;
+      font: 650 12px var(--mono);
+      position: relative;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .task-node::after { content: ""; position: absolute; inset: auto 5px 5px; height: 3px; background: var(--cyan); }
+    .task-node.fail::after { background: var(--red); }
+    .task-node:hover, .task-node.active { border-color: var(--ink); background: rgba(36, 72, 88, .8); }
+    .task-node.active { box-shadow: inset 0 0 0 1px var(--ink); }
+    .task-detail { min-height: 190px; padding: 22px; border: 1px solid var(--line); background: rgba(10, 34, 48, .85); }
+    .task-detail .state { color: var(--cyan); font: 12px var(--mono); }
+    .task-detail .state.fail { color: var(--red); }
+    .task-detail h3 { margin: 12px 0 18px; font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .detail-grid small { color: var(--faint); display: block; margin-bottom: 4px; }
+    .detail-grid strong { font-family: var(--mono); font-size: 13px; }
+
+    .public-board { display: grid; grid-template-columns: minmax(0, 1fr) 270px; border-top: 1px solid var(--line); }
+    .leader-row { display: grid; grid-template-columns: 200px minmax(0, 1fr) 64px; align-items: center; gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .leader-row strong { font-size: 14px; }
+    .leader-track { position: relative; height: 7px; background: rgba(157,182,196,.1); }
+    .leader-track span { position: absolute; inset: 0 auto 0 0; background: var(--blue); }
+    .leader-score { text-align: right; font: 14px var(--mono); }
+    .context-note { padding: 22px; border-left: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .context-note strong { display: block; color: var(--ink); font-size: 17px; margin-bottom: 8px; }
+
+    .method { display: grid; grid-template-columns: 1.1fr .9fr; gap: 70px; }
+    .method p, .method li { color: var(--muted); line-height: 1.65; }
+    .method ul { padding-left: 18px; }
+    .source-list { list-style: none; padding: 0 !important; }
+    .source-list li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .source-list small { display: block; color: var(--faint); margin-top: 3px; }
+
+    footer { display: flex; justify-content: space-between; gap: 30px; padding: 32px 0 48px; color: var(--faint); font: 11px/1.5 var(--mono); }
+
+    @media (max-width: 900px) {
+      header { grid-template-columns: 1fr; }
+      .run-stamp { text-align: left; }
+      .instrument { grid-template-columns: 1fr; }
+      .readout { writing-mode: initial; transform: none; min-height: 76px; flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); }
+      .readout .score { font-size: 42px; }
+      .metric-rail { grid-template-columns: 1fr 1fr; }
+      .metric:nth-child(2) { border-right: 0; }
+      .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .section-head, .method { grid-template-columns: 1fr; gap: 18px; }
+      .task-layout, .public-board { grid-template-columns: 1fr; }
+      .context-note { border-left: 0; border-bottom: 1px solid var(--line); }
+      .task-grid { grid-template-columns: repeat(5, 1fr); }
+    }
+
+    @media (max-width: 620px) {
+      .shell { width: min(100% - 24px, 1440px); }
+      .scope { padding: 20px 12px 10px; }
+      .scope-head { display: block; }
+      .legend { justify-content: flex-start; margin-top: 14px; }
+      #frontier { height: 420px; }
+      .metric-rail { grid-template-columns: 1fr; }
+      .metric { border-right: 0; border-bottom: 1px solid var(--line); }
+      .bus-row { grid-template-columns: 1fr 80px; }
+      .track { grid-column: 1 / -1; grid-row: 2; }
+      .bus-row .bus-value:first-of-type { grid-column: 2; grid-row: 1; }
+      .bus-row .bus-value:last-child { display: none; }
+      .leader-row { grid-template-columns: 120px minmax(0, 1fr) 52px; gap: 10px; }
+      footer { flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topline" aria-hidden="true"></div>
+  <div class="shell">
+    <header>
+      <div>
+        <div class="kicker">CVDP / AGENTIC RTL / COST FRONTIER</div>
+        <h1>PP Switchyard Router (3 stages) moves the frontier.<span>65% pass rate at $0.71 across a fixed public 20-task CVDP run.</span></h1>
+        <div class="disclosure"><b>!</b><div><b>Comparison boundary:</b> the supplied reference chart does not disclose its 20 task IDs. PP Switchyard Router (3 stages) used a deterministic public subset, so the shared plot is a directional cost–quality view, not a strict same-task leaderboard.</div></div>
+      </div>
+      <div class="run-stamp">
+        <strong>RUN 20261028-FULL</strong><br>
+        20 / 20 official results<br>
+        OpenCode 1.18.3 · sequential<br>
+        29 Oct 2026
+      </div>
+    </header>
+
+    <main>
+      <div class="instrument" aria-label="Pass rate versus total model cost chart">
+        <aside class="readout">
+          <span class="score">65%</span>
+          <span class="unit">MEASURED PASS RATE · HIGHER IS BETTER</span>
+        </aside>
+        <div class="scope">
+          <div class="scope-head">
+            <div>
+              <h2>Pass rate vs. total model cost</h2>
+              <p>CVDP agentic · 20 tasks · official functional grading</p>
+            </div>
+            <div class="legend" aria-label="Chart legend">
+              <span style="color:var(--cyan)"><i class="dot"></i> PP Switchyard Router (3 stages)</span>
+              <span style="color:var(--blue)"><i class="dot"></i> Supplied reference</span>
+              <span style="color:var(--orange)"><i class="dot"></i> Baseline</span>
+              <span style="color:var(--yellow)"><i class="dot"></i> Oracle</span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <svg id="frontier" role="img" aria-label="Scatter plot showing PP Switchyard Router (3 stages) at 65 percent and 0.71 dollars alongside supplied reference points"></svg>
+            <div id="tooltip" class="tooltip" role="status" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="metric-rail" aria-label="Run metrics">
+        <div class="metric"><small>Official result</small><strong>13 / 20</strong><span class="sub">7 functional failures · 0 infra failures</span></div>
+        <div class="metric"><small>List-price model cost</small><strong>$0.7132</strong><span class="sub">all 537 routed calls included</span></div>
+        <div class="metric"><small>Wall-clock time</small><strong>111.4 min</strong><span class="sub">tasks executed sequentially</span></div>
+        <div class="metric"><small>Prompt cache share</small><strong>94.82%</strong><span class="sub">15.37M of 16.20M prompt tokens</span></div>
+      </div>
+
+      <section id="routing">
+        <div class="section-head">
+          <h2>The route stayed cheap—sometimes too long.</h2>
+          <p>DeepSeek handled nearly 93% of calls. That kept spend low, but long-tail tasks such as AES and async FIFO needed 78 and 115 calls before converging.</p>
+        </div>
+        <div class="bus" aria-label="Model call and cost distribution">
+          <div class="bus-row">
+            <div class="bus-name">DeepSeek V4.1 Flash<small>efficient path</small></div>
+            <div class="track"><span style="width:92.92%;background:var(--cyan)"></span></div>
+            <div class="bus-value"><small>calls</small>499 · 92.9%</div>
+            <div class="bus-value"><small>cost</small>$0.4318</div>
+          </div>
+          <div class="bus-row">
+            <div class="bus-name">GPT-5.6 Luna<small>balanced escalation</small></div>
+            <div class="track"><span style="width:6.33%;background:var(--blue)"></span></div>
+            <div class="bus-value"><small>calls</small>34 · 6.3%</div>
+            <div class="bus-value"><small>cost</small>$0.0924</div>
+          </div>
+          <div class="bus-row">
+            <div class="bus-name">Claude Opus 5.5<small>capable escalation</small></div>
+            <div class="track"><span style="width:.74%;background:var(--orange)"></span></div>
+            <div class="bus-value"><small>calls</small>4 · 0.7%</div>
+            <div class="bus-value"><small>cost</small>$0.1890</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tasks">
+        <div class="section-head">
+          <h2>Twenty tasks, no hidden retries.</h2>
+          <p>Each tile is one official terminal result. Select a tile to inspect difficulty, routed calls, cost, and model mix.</p>
+        </div>
+        <div class="task-layout">
+          <div id="task-grid" class="task-grid" aria-label="Task result grid"></div>
+          <aside id="task-detail" class="task-detail" aria-live="polite"></aside>
+        </div>
+      </section>
+
+      <section id="public-context">
+        <div class="section-head">
+          <h2>Public CVDP context, kept on a separate ruler.</h2>
+          <p>Mercor APEX reports a 517-task CVDP leaderboard using a different harness, task mix, and k=5 protocol. These scores establish the public landscape; they are not merged into the 20-task cost plot.</p>
+        </div>
+        <div class="public-board">
+          <div>
+            <div class="leader-row"><strong>Opus 5.5 Max</strong><div class="leader-track"><span style="width:91.57%"></span></div><div class="leader-score">64.1%</div></div>
+            <div class="leader-row"><strong>Fable 5.1 Max</strong><div class="leader-track"><span style="width:89.43%"></span></div><div class="leader-score">62.6%</div></div>
+            <div class="leader-row"><strong>Opus 5 Max</strong><div class="leader-track"><span style="width:88.86%"></span></div><div class="leader-score">62.2%</div></div>
+            <div class="leader-row"><strong>Sonnet 5.5 Max</strong><div class="leader-track"><span style="width:86.57%"></span></div><div class="leader-score">60.6%</div></div>
+            <div class="leader-row"><strong>Grok 4.6 xHigh</strong><div class="leader-track"><span style="width:82.86%"></span></div><div class="leader-score">58.0%</div></div>
+          </div>
+          <aside class="context-note">
+            <strong>Why a separate ruler?</strong>
+            APEX covers 517 public tasks, combines multi-step code generation with single-shot comprehension, and reports Pass@1 over k=5 runs. PP Switchyard Router (3 stages) here is one fixed 20-task agentic code-generation run with measured API cost.
+          </aside>
+        </div>
+      </section>
+
+      <section id="methodology">
+        <div class="method">
+          <div>
+            <h2>What this page can—and cannot—claim.</h2>
+            <p>The PP Switchyard Router (3 stages) result is reproducible: pinned CVDP harness and dataset revisions, a frozen 20-task public subset, official cocotb/Icarus-style functional outcomes, and model usage captured at the router. The reference points reproduce values from the graphic supplied with this benchmark request.</p>
+            <ul>
+              <li><strong>Measured:</strong> PP Switchyard Router (3 stages) pass rate, per-task outcomes, model calls, tokens, cost, and elapsed time.</li>
+              <li><strong>Directional:</strong> position relative to the supplied Oracle, GLM, Opus, and Switchyard routing points.</li>
+              <li><strong>Not claimed:</strong> statistical superiority over the reference cohort or the public 517-task leaderboard.</li>
+            </ul>
+          </div>
+          <div>
+            <h2>Sources</h2>
+            <ul class="source-list">
+              <li><a href="https://github.com/NVlabs/cvdp_benchmark">NVLabs CVDP benchmark</a><small>Canonical open-source benchmark and agentic harness</small></li>
+              <li><a href="https://arxiv.org/abs/2506.14074">CVDP paper</a><small>783 problems across 13 hardware design and verification categories</small></li>
+              <li><a href="https://www.mercor.com/apex/oss-benchmarks/oss-cvdp-leaderboard/">Mercor APEX CVDP leaderboard</a><small>Public 517-task frontier scores shown above</small></li>
+              <li><a href="https://www.mercor.com/apex/methodology/">Mercor APEX methodology</a><small>k=5, Pass@1, task mix, harness, and grading details</small></li>
+              <li><a href="summary.json">PP Switchyard Router run summary</a><small>Local machine-readable result and provenance</small></li>
+              <li><a href="tasks.csv">PP Switchyard Router task ledger</a><small>Local per-task outcome, calls, model mix, and cost</small></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>PP SWITCHYARD ROUTER (3 STAGES) · CVDP AGENTIC 20 · RUN 20261028-FULL</span>
+      <span>Generated from retained official results · prices from pinned model registry</span>
+    </footer>
+  </div>
+
+  <script>
+    const points = [
+      {name:'GLM 5.2 alone', cost:1.31, pass:20, group:'reference', color:'#9db6c4', note:'Supplied reference chart'},
+      {name:'Switchyard escalation', cost:2.78, pass:25, group:'reference', color:'#5aa7ff', note:'Supplied reference chart'},
+      {name:'Switchyard stage router', cost:6.14, pass:40, group:'reference', color:'#5aa7ff', note:'Supplied reference chart'},
+      {name:'Switchyard LLM-as-judge', cost:6.24, pass:35, group:'reference', color:'#5aa7ff', note:'Supplied reference chart'},
+      {name:'Opus 4.8 baseline', cost:11.06, pass:55, group:'baseline', color:'#ff855f', note:'Supplied reference chart'},
+      {name:'Oracle', cost:4.11, pass:55, group:'oracle', color:'#f2c85b', note:'Cheapest passing model per task, in hindsight'},
+      {name:'PP Switchyard Router (3 stages)', cost:.7132218111, pass:65, group:'switchy', color:'#59dfcb', note:'Measured on deterministic public 20-task subset'}
+    ];
+
+    const tasks = [
+      ['64b66b codec','medium','passed',13,.0088719566,'DeepSeek'],
+      ['AES encryption / decryption','medium','passed',78,.1009680562,'DeepSeek + Luna'],
+      ['async FIFO compute RAM','hard','passed',9,.0073927915,'DeepSeek'],
+      ['async FILO','medium','passed',115,.1144669098,'DeepSeek'],
+      ['AXIS broadcaster','easy','failed',12,.0104432401,'DeepSeek + Luna'],
+      ['binary search tree','medium','failed',20,.0288796617,'DeepSeek + Luna'],
+      ['Caesar cipher','easy','passed',8,.0042199048,'DeepSeek'],
+      ['cellular automata','easy','passed',11,.0040764727,'DeepSeek + Luna'],
+      ['digital stopwatch','easy','failed',7,.0994988188,'DeepSeek + Luna + Opus'],
+      ['direct-map cache','medium','passed',16,.0095968103,'DeepSeek + Luna'],
+      ['DMA transfer engine','medium','passed',57,.0383901604,'DeepSeek + Luna'],
+      ['dual-port memory','medium','passed',5,.0039283755,'DeepSeek'],
+      ['GCD','hard','passed',20,.0212920622,'DeepSeek + Luna'],
+      ['phase rotation 0010','medium','failed',14,.0306666782,'DeepSeek + Luna'],
+      ['phase rotation 0019','medium','passed',35,.0428345568,'DeepSeek + Luna'],
+      ['RC5','hard','failed',41,.0334390978,'DeepSeek'],
+      ['sorter','easy','passed',16,.0167709980,'DeepSeek + Luna'],
+      ['SPI complex multiplier','medium','failed',32,.0274271696,'DeepSeek + Luna'],
+      ['traffic-light controller','hard','failed',12,.0073456876,'DeepSeek'],
+      ['universal shift register','medium','passed',16,.1027124025,'DeepSeek + Luna + Opus']
+    ];
+
+    const svg = document.getElementById('frontier');
+    const tooltip = document.getElementById('tooltip');
+    const ns = 'http://www.w3.org/2000/svg';
+    const W = 1180, H = 500, m = {l:64,r:26,t:28,b:55};
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const x = v => m.l + (v / 12) * (W - m.l - m.r);
+    const y = v => H - m.b - (v / 70) * (H - m.t - m.b);
+    const add = (tag, attrs={}, text='') => {
+      const el = document.createElementNS(ns, tag);
+      Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
+      if (text) el.textContent = text;
+      svg.appendChild(el); return el;
+    };
+
+    for (let v=0; v<=60; v+=10) {
+      add('line',{x1:m.l,y1:y(v),x2:W-m.r,y2:y(v),stroke:'#244858','stroke-width':1});
+      add('text',{x:m.l-13,y:y(v)+4,fill:'#7897a6','font-size':11,'text-anchor':'end','font-family':'SFMono-Regular,monospace'},`${v}%`);
+    }
+    for (let v=0; v<=12; v+=2) {
+      add('line',{x1:x(v),y1:m.t,x2:x(v),y2:H-m.b,stroke:'#244858','stroke-width':1});
+      add('text',{x:x(v),y:H-m.b+25,fill:'#7897a6','font-size':11,'text-anchor':'middle','font-family':'SFMono-Regular,monospace'},`$${v}`);
+    }
+    add('text',{x:(m.l+W-m.r)/2,y:H-8,fill:'#9db6c4','font-size':12,'text-anchor':'middle'},'TOTAL MODEL COST ACROSS 20 TASKS · LOWER IS BETTER');
+
+    const route = points.filter(p => p.group==='reference').sort((a,b)=>a.cost-b.cost);
+    add('polyline',{points:route.map(p=>`${x(p.cost)},${y(p.pass)}`).join(' '),fill:'none',stroke:'#315f88','stroke-width':3,'stroke-linejoin':'round'});
+    add('line',{x1:x(points[6].cost),y1:y(points[6].pass),x2:x(points[6].cost),y2:H-m.b,stroke:'#59dfcb','stroke-width':1,'stroke-dasharray':'4 6',opacity:.65});
+    add('line',{x1:m.l,y1:y(points[6].pass),x2:x(points[6].cost),y2:y(points[6].pass),stroke:'#59dfcb','stroke-width':1,'stroke-dasharray':'4 6',opacity:.65});
+
+    const labelOffsets = {
+      'GLM 5.2 alone':[12,-10], 'Switchyard escalation':[12,22], 'Switchyard stage router':[-14,-18],
+      'Switchyard LLM-as-judge':[12,24], 'Opus 4.8 baseline':[-12,28], 'Oracle':[12,-15], 'PP Switchyard Router (3 stages)':[15,8]
+    };
+
+    points.forEach(p => {
+      const g = add('g',{'tabindex':'0','role':'button','aria-label':`${p.name}: ${p.pass}% at $${p.cost.toFixed(2)}`});
+      const halo = document.createElementNS(ns,'circle');
+      halo.setAttribute('cx',x(p.cost)); halo.setAttribute('cy',y(p.pass)); halo.setAttribute('r',p.group==='switchy'?18:13);
+      halo.setAttribute('fill',p.color); halo.setAttribute('opacity','.12'); g.appendChild(halo);
+      const c = document.createElementNS(ns,'circle');
+      c.setAttribute('cx',x(p.cost)); c.setAttribute('cy',y(p.pass)); c.setAttribute('r',p.group==='switchy'?9:7);
+      c.setAttribute('fill',p.color); c.setAttribute('stroke','#061925'); c.setAttribute('stroke-width','3'); g.appendChild(c);
+      const [dx,dy] = labelOffsets[p.name];
+      const t = document.createElementNS(ns,'text');
+      t.setAttribute('x',x(p.cost)+dx); t.setAttribute('y',y(p.pass)+dy); t.setAttribute('fill',p.color);
+      t.setAttribute('font-size',p.group==='switchy'?14:12); t.setAttribute('font-weight','700');
+      if (dx < 0) t.setAttribute('text-anchor','end');
+      t.textContent = p.name; g.appendChild(t);
+      const show = ev => {
+        tooltip.innerHTML = `<strong>${p.name}</strong>${p.pass}% pass · $${p.cost.toFixed(2)}<br><em>${p.note}</em>`;
+        const rect = svg.getBoundingClientRect();
+        const px = ((x(p.cost)/W)*rect.width)+10, py = ((y(p.pass)/H)*rect.height)-4;
+        tooltip.style.left = `${Math.min(px, rect.width-220)}px`; tooltip.style.top = `${Math.max(8,py)}px`;
+        tooltip.classList.add('visible');
+      };
+      const hide = () => tooltip.classList.remove('visible');
+      g.addEventListener('mouseenter',show); g.addEventListener('mouseleave',hide); g.addEventListener('focus',show); g.addEventListener('blur',hide);
+      svg.appendChild(g);
+    });
+
+    const grid = document.getElementById('task-grid');
+    const detail = document.getElementById('task-detail');
+    const showTask = i => {
+      const [name,difficulty,status,calls,cost,models] = tasks[i];
+      [...grid.children].forEach((n,j)=>n.classList.toggle('active',j===i));
+      detail.innerHTML = `<div class="state ${status==='failed'?'fail':''}">${status==='passed'?'OFFICIAL PASS':'FUNCTIONAL FAIL'} · TASK ${String(i+1).padStart(2,'0')}</div><h3>${name}</h3><div class="detail-grid"><div><small>Difficulty</small><strong>${difficulty}</strong></div><div><small>Routed calls</small><strong>${calls}</strong></div><div><small>Model cost</small><strong>$${cost.toFixed(4)}</strong></div><div><small>Models used</small><strong>${models}</strong></div></div>`;
+    };
+    tasks.forEach((task,i) => {
+      const b = document.createElement('button');
+      b.className = `task-node ${task[2]==='failed'?'fail':''}`; b.textContent = String(i+1).padStart(2,'0');
+      b.setAttribute('aria-label',`${task[0]}: ${task[2]}`); b.addEventListener('click',()=>showTask(i)); grid.appendChild(b);
+    });
+    showTask(0);
+  </script>
+</body>
+</html>
